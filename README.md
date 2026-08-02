@@ -169,7 +169,7 @@ ZHIXUEHUAN_LLM_ENABLED=false
 ZHIXUEHUAN_LLM_API_KEY=
 ```
 
-环境变量的完整示例见 [`.env.example`](.env.example)。请勿将真实 API Key 写入 README、日志或版本库。
+环境变量的完整示例见 [`.env.example`](.env.example)。
 
 ---
 
