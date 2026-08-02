@@ -1,0 +1,52 @@
+.env
+.env.*
+!.env.example
+demo/.env
+demo/.env.*
+*.local
+*.local.*
+*.key
+*.pem
+secrets/
+.venv/
+__pycache__/
+*.pyc
+data/*.db
+data/*.db-journal
+# VS
+.vs/
+
+# Build
+*.egg-info/
+zhixuehuan_agent_backend.egg-info/
+
+# Pytest
+.pytest_cache/
+work/
+.pytest_tmp/
+
+# VS Code
+.vscode/
+
+# macOS / Windows
+.DS_Store
+Thumbs.db
+
+# Zip
+*.zip
+# Visual Studio
+.vs/
+
+# VS Code
+.vscode/
+
+# Python cache
+.pytest_cache/
+work/
+
+# Build
+*.egg-info/
+zhixuehuan_agent_backend.egg-info/
+
+# Zip
+*.zip

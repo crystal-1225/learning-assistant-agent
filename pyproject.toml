@@ -1,0 +1,32 @@
+[project]
+name = "zhixuehuan-agent-backend"
+version = "0.1.0"
+description = "FastAPI backend for Zhixuehuan learning agent MVP."
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.115.0",
+  "uvicorn>=0.30.0",
+  "sqlalchemy>=2.0.0",
+  "pydantic>=2.7.0",
+  "pydantic-settings>=2.3.0",
+  "python-multipart>=0.0.9",
+  "gradio>=6.20.0,<7.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0.0",
+  "httpx>=0.27.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-m 'not live_llm'"
+markers = [
+  "live_llm: tests that call a real configured LLM provider",
+]
+
+[tool.setuptools.packages.find]
+include = ["app*", "demo*"]
+exclude = ["data*", "tests*"]
