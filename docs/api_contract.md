@@ -62,6 +62,32 @@
 
 鸿蒙端可用字段：课程、计划、知识点、今日任务、公开练习题、trace 展示字段。
 
+## POST /api/courses/from-file
+
+上传单个课程资料文件（.pdf / .docx / .pptx 文本型），multipart/form-data。表单字段与 `from-text` 相同，但 `material_text` 可选（作为对文件抽取文本的补充说明）；文件字段名为 `file`。
+
+```text
+POST /api/courses/from-file
+Content-Type: multipart/form-data
+
+user_id=1
+course_title=高等数学
+goal=3天复习极限，准备小测
+start_date=2026-07-11
+end_date=2026-07-13
+daily_minutes=40
+material_text=（可选，补充文本）
+file=@notes.docx
+```
+
+成功响应与 `POST /api/courses/from-text` 一致（course / plan / knowledge_points / today_task / trace）。
+
+安全约束：
+
+- 仅支持文本型 .pdf / .docx / .pptx，通过**文件内容魔数**校验（不信任扩展名）。
+- 文件大小上限由 `ZHIXUEHUAN_MAX_FILE_MB` 控制（默认 10MB）。
+- **原始文件不落盘**，只保存抽取文本和安全的文件名（去掉路径后的 basename），不保存客户端路径。
+
 ## GET /api/plans/{plan_id}
 
 成功响应包含：`plan`、`course`、`knowledge_points`、`mastery_records`。任务按日期排序，练习只返回公开字段。

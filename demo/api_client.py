@@ -33,6 +33,24 @@ class DemoApiClient:
         safe_payload = {field: payload[field] for field in allowed_fields if field in payload}
         return self.post("/api/courses/from-text", safe_payload)
 
+    def create_course_from_file(self, payload: dict[str, Any], filename: str, content: bytes) -> dict[str, Any]:
+        """Upload a course document as multipart form data; ``payload`` holds the form fields."""
+        allowed_fields = (
+            "user_id",
+            "course_title",
+            "goal",
+            "start_date",
+            "end_date",
+            "daily_minutes",
+            "material_text",
+        )
+        data = {
+            field: str(payload[field])
+            for field in allowed_fields
+            if field in payload and payload[field] not in (None, "")
+        }
+        return self._request_multipart("/api/courses/from-file", data, filename, content)
+
     def get_today_task(self, plan_id: int) -> dict[str, Any]:
         return self.get(f"/api/plans/{plan_id}/today")
 
@@ -89,9 +107,22 @@ class DemoApiClient:
 
     def _request(self, method: str, path: str, payload: dict[str, Any] | None = None) -> dict[str, Any] | list[dict[str, Any]]:
         url = f"{self.base_url}{path if path.startswith('/') else '/' + path}"
+        return self._send(method, url, json=payload)
+
+    def _request_multipart(
+        self,
+        path: str,
+        data: dict[str, str],
+        filename: str,
+        content: bytes,
+    ) -> dict[str, Any]:
+        url = f"{self.base_url}{path if path.startswith('/') else '/' + path}"
+        return self._send("POST", url, data=data, files={"file": (filename, content, "application/octet-stream")})
+
+    def _send(self, method: str, url: str, **kwargs) -> dict[str, Any] | list[dict[str, Any]]:
         try:
             with httpx.Client(timeout=self.timeout_seconds, trust_env=False) as client:
-                response = client.request(method, url, json=payload)
+                response = client.request(method, url, **kwargs)
         except httpx.TimeoutException as exc:
             raise DemoApiError("连接后端超时，请确认 FastAPI 服务已启动且地址正确。") from exc
         except httpx.HTTPError as exc:

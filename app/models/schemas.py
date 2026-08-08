@@ -33,16 +33,17 @@ class CourseRead(BaseModel):
     created_at: datetime
 
 
-class CourseFromTextCreate(BaseModel):
+class CoursePlanInputBase(BaseModel):
+    """Shared course-planning input fields for the text and file endpoints."""
+
     user_id: int
     course_title: str = Field(min_length=1, max_length=120)
     goal: str = Field(min_length=1, max_length=2000)
     start_date: date
     end_date: date
     daily_minutes: int = Field(gt=0, le=600)
-    material_text: str = Field(min_length=1, max_length=50000)
 
-    @field_validator("course_title", "goal", "material_text")
+    @field_validator("course_title", "goal")
     @classmethod
     def text_fields_must_not_be_blank(cls, value: str) -> str:
         stripped = value.strip()
@@ -51,13 +52,39 @@ class CourseFromTextCreate(BaseModel):
         return stripped
 
     @model_validator(mode="after")
-    def validate_date_range(self) -> "CourseFromTextCreate":
+    def validate_date_range(self) -> "CoursePlanInputBase":
         if self.end_date < self.start_date:
             raise ValueError("end_date cannot be earlier than start_date")
         days = (self.end_date - self.start_date).days + 1
         if days > 30:
             raise ValueError("date range cannot exceed 30 days")
         return self
+
+
+class CourseFromTextCreate(CoursePlanInputBase):
+    material_text: str = Field(min_length=1, max_length=50000)
+
+    @field_validator("material_text")
+    @classmethod
+    def material_text_must_not_be_blank(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("material_text cannot be blank")
+        return stripped
+
+
+class CourseFromFileCreate(CoursePlanInputBase):
+    """Form payload for /api/courses/from-file (the uploaded file is a separate Form field)."""
+
+    material_text: str | None = Field(default=None, max_length=50000)
+
+    @field_validator("material_text")
+    @classmethod
+    def normalize_material_text(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        stripped = value.strip()
+        return stripped or None
 
 
 class KnowledgePointRead(BaseModel):

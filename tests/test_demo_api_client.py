@@ -38,8 +38,8 @@ class FakeClient:
     def __exit__(self, *args) -> None:
         return None
 
-    def request(self, method: str, url: str, json=None):
-        FakeTransport.calls.append({"method": method, "url": url, "json": json})
+    def request(self, method: str, url: str, json=None, **kwargs):
+        FakeTransport.calls.append({"method": method, "url": url, "json": json, **kwargs})
         response = FakeTransport.responses.pop(0)
         if isinstance(response, Exception):
             raise response
@@ -146,6 +146,99 @@ def test_create_plan_request_filters_sensitive_fields(monkeypatch: pytest.Monkey
     assert "standard_answer" not in sent
     assert "explanation" not in sent
     assert "api_key" not in sent
+
+
+def test_create_course_from_file_request_format(monkeypatch: pytest.MonkeyPatch) -> None:
+    install_fake_http(monkeypatch)
+    FakeTransport.responses.append(json_response(200, {"plan": {"id": 1}}))
+    payload = {
+        "user_id": 1,
+        "course_title": "高等数学",
+        "goal": "3天复习极限",
+        "start_date": "2026-07-11",
+        "end_date": "2026-07-13",
+        "daily_minutes": 40,
+        "material_text": "补充文本",
+    }
+    DemoApiClient(base_url="http://backend").create_course_from_file(payload, "notes.docx", b"file-content")
+    call = FakeTransport.calls[0]
+    assert call["method"] == "POST"
+    assert call["url"] == "http://backend/api/courses/from-file"
+    assert call["data"]["user_id"] == "1"
+    assert call["data"]["daily_minutes"] == "40"
+    assert call["data"]["material_text"] == "补充文本"
+    assert "standard_answer" not in call["data"]
+    assert "notes.docx" in call["files"]["file"]
+
+
+def test_create_course_from_file_omits_empty_material_text(monkeypatch: pytest.MonkeyPatch) -> None:
+    install_fake_http(monkeypatch)
+    FakeTransport.responses.append(json_response(200, {"plan": {"id": 1}}))
+    payload = {
+        "user_id": 1,
+        "course_title": "高等数学",
+        "goal": "目标",
+        "start_date": "2026-07-11",
+        "end_date": "2026-07-13",
+        "daily_minutes": 40,
+        "material_text": None,
+    }
+    DemoApiClient(base_url="http://backend").create_course_from_file(payload, "notes.docx", b"file-content")
+    call = FakeTransport.calls[0]
+    assert "material_text" not in call["data"]
+    assert set(call["data"]) == {"user_id", "course_title", "goal", "start_date", "end_date", "daily_minutes"}
+
+
+def test_create_plan_with_file_uses_file_endpoint(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    file_path = tmp_path / "notes.docx"
+    file_path.write_bytes(b"%PDF-fake-content")
+
+    class FileClient(FakeDemoApiClient):
+        def __init__(self, mode: str = "rule") -> None:
+            super().__init__(mode)
+            self.captured: dict = {}
+
+        def create_course_from_file(self, payload: dict, filename: str, content: bytes) -> dict:
+            self.captured["payload"] = payload
+            self.captured["filename"] = filename
+            self.captured["content"] = content
+            return sample_creation_response(self.mode)
+
+    fake = FileClient()
+    monkeypatch.setattr("demo.app.DemoApiClient", lambda: fake)
+    status, output, state = create_learning_plan(
+        None,
+        "演示用户",
+        "高等数学",
+        "3天复习极限",
+        "2026-07-11",
+        "2026-07-13",
+        40,
+        "",
+        str(file_path),
+    )
+    assert "成功" in status
+    assert fake.captured["filename"] == "notes.docx"
+    assert fake.captured["content"] == b"%PDF-fake-content"
+    assert state["plan_id"] == 13
+
+
+def test_create_plan_requires_text_or_file(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("demo.app.DemoApiClient", lambda: FakeDemoApiClient(mode="rule"))
+    status, output, state = create_learning_plan(
+        None,
+        "演示用户",
+        "高等数学",
+        "3天复习极限",
+        "2026-07-11",
+        "2026-07-13",
+        40,
+        "",
+        None,
+    )
+    assert "错误" in status
+    assert "上传" in output
+    assert state["plan_id"] is None
 
 
 def test_today_task_response_parses(monkeypatch: pytest.MonkeyPatch) -> None:

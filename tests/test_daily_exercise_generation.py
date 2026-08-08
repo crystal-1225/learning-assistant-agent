@@ -1,3 +1,4 @@
+from datetime import date, timedelta
 from typing import Any
 
 import pytest
@@ -75,16 +76,22 @@ class AutoExerciseLLM(LLMClient):
 
 
 def _create_five_day_plan(client: TestClient) -> dict[str, Any]:
+    """Create a five-day plan relative to today.
+
+    Dates are derived from ``date.today()`` so the `/today` endpoint always
+    treats day 2 as "today's task", regardless of when the tests run.
+    """
     user_response = client.post("/api/users", json={"name": "每日练习测试用户"})
     assert user_response.status_code == 200
+    today = date.today()
     response = client.post(
         "/api/courses/from-text",
         json={
             "user_id": user_response.json()["id"],
             "course_title": "高等数学",
             "goal": "5天复习极限与导数基础",
-            "start_date": "2026-08-01",
-            "end_date": "2026-08-05",
+            "start_date": (today - timedelta(days=1)).isoformat(),
+            "end_date": (today + timedelta(days=3)).isoformat(),
             "daily_minutes": 45,
             "material_text": "极限定义、重要极限、连续性、导数定义、导数应用。",
         },

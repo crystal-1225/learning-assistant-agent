@@ -25,6 +25,7 @@
 - 动态重规划
 - Dashboard 学习概览
 - Agent Trace 执行轨迹
+- 课程资料文件解析（.pdf / .docx / .pptx 文本型）
 
 项目默认使用确定性的 **Rule Mode**，无需外部模型即可完成演示。同时预留 **OpenAI Compatible** 接口；启用后若模型请求失败或结构化结果无效，系统会自动切换到 `fallback_rule`。默认配置不代表已调用真实 LLM 服务。
 
@@ -54,6 +55,7 @@
 | --- | --- |
 | **Learning Plan** | 根据学习目标、计划日期和每日时长生成阶段计划与每日任务。 |
 | **Content Parser V2** | 从课程笔记与学习目标中提取简洁、规范、可复用的知识点。 |
+| **Document Parser** | 上传 .pdf / .docx / .pptx 文本型资料，抽取文本后复用现有解析链路，原始文件不落盘。 |
 | **Exercise Generator V3** | 生成题型多样、难度递进且经过确定性去重的练习题。 |
 | **Submission** | 评价用户答案，计算正确率并生成逐题学习反馈。 |
 | **Knowledge Mastery** | 根据真实提交结果更新知识点掌握度并限制在合理区间。 |

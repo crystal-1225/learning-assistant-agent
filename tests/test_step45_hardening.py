@@ -144,6 +144,7 @@ def test_api_contract_file_exists_and_mentions_main_routes() -> None:
     for route in [
         "POST /api/users",
         "POST /api/courses/from-text",
+        "POST /api/courses/from-file",
         "GET /api/plans/{plan_id}",
         "GET /api/plans/{plan_id}/today",
         "POST /api/tasks/{task_id}/submit",

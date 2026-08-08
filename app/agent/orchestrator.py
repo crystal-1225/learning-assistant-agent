@@ -24,7 +24,8 @@ from app.models.entities import (
     StudyPlan,
     User,
 )
-from app.tools import content_parser, exercise_generator, goal_analyzer, plan_generator, task_generator
+from app.tools import content_parser, document_parser, exercise_generator, goal_analyzer, plan_generator, task_generator
+from app.tools.document_parser import DocumentParseError
 from app.tools.types import ExerciseDraft, GoalSummary, KnowledgePointDraft
 
 
@@ -65,8 +66,77 @@ class AgentOrchestrator:
         end_date,
         daily_minutes: int,
         material_text: str,
+        filename: str = "from-text.txt",
     ) -> CoursePlanResult:
         recorder = TraceRecorder()
+        return self._create_course_plan_with_recorder(
+            recorder,
+            user=user,
+            course_title=course_title,
+            goal=goal,
+            start_date=start_date,
+            end_date=end_date,
+            daily_minutes=daily_minutes,
+            material_text=material_text,
+            filename=filename,
+        )
+
+    def create_course_plan_from_file(
+        self,
+        *,
+        user: User,
+        course_title: str,
+        goal: str,
+        start_date,
+        end_date,
+        daily_minutes: int,
+        filename: str,
+        file_bytes: bytes,
+        supplementary_text: str = "",
+    ) -> CoursePlanResult:
+        """Extract text from an uploaded document, then reuse the text chain.
+
+        The original file is never persisted: only the sanitized basename and
+        the extracted text reach the database.
+        """
+        recorder = TraceRecorder()
+        parse_result = recorder.run(
+            step="解析文档资料",
+            tool_name="document_parser",
+            reason_summary="从上传文件中抽取课程文本，供知识点解析使用。",
+            input_summary=f"文件名：{filename}；文件大小：{len(file_bytes)} 字节。",
+            output_summary=lambda result: f"识别格式 {result.file_format}，抽取 {result.char_count} 字符。",
+            func=lambda: document_parser.extract_text_from_bytes(filename, file_bytes),
+        )
+        text = parse_result.text
+        if supplementary_text and supplementary_text.strip():
+            text = f"{text}\n{supplementary_text.strip()}"
+        text = text[: get_settings().max_file_chars]
+        return self._create_course_plan_with_recorder(
+            recorder,
+            user=user,
+            course_title=course_title,
+            goal=goal,
+            start_date=start_date,
+            end_date=end_date,
+            daily_minutes=daily_minutes,
+            material_text=text,
+            filename=filename,
+        )
+
+    def _create_course_plan_with_recorder(
+        self,
+        recorder: TraceRecorder,
+        *,
+        user: User,
+        course_title: str,
+        goal: str,
+        start_date,
+        end_date,
+        daily_minutes: int,
+        material_text: str,
+        filename: str,
+    ) -> CoursePlanResult:
         try:
             goal_result = recorder.run(
                 step="分析学习目标",
@@ -111,7 +181,7 @@ class AgentOrchestrator:
 
             material = Material(
                 course_id=course.id,
-                filename="from-text.txt",
+                filename=filename,
                 content_text=material_text,
                 summary=f"已解析出 {len(point_drafts)} 个知识点。",
             )

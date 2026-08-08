@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     llm_max_retries: int = Field(default=2, ge=1, le=5)
     llm_max_input_chars: int = Field(default=8000, gt=0, le=50000)
     llm_max_output_chars: int = Field(default=12000, gt=0, le=50000)
+    max_file_mb: int = Field(default=10, gt=0, le=100)
+    max_file_chars: int = Field(default=50000, gt=0, le=200000)
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000,http://localhost:8000"
 
     model_config = SettingsConfigDict(env_prefix="ZHIXUEHUAN_", env_file=".env", env_file_encoding="utf-8")

@@ -9,6 +9,7 @@ demo/.env.*
 *.pem
 secrets/
 .venv/
+install_cache/
 __pycache__/
 *.pyc
 data/*.db
@@ -50,3 +51,4 @@ zhixuehuan_agent_backend.egg-info/
 
 # Zip
 *.zip
+.mcp.json

@@ -180,8 +180,16 @@ def create_learning_plan(
     end_date: str,
     daily_minutes: float | int,
     material_text: str,
+    course_file: str | None = None,
 ) -> tuple[str, str, dict[str, Any]]:
     session = state or empty_session()
+    client = DemoApiClient()
+    text = (material_text or "").strip()
+    file_path = _coerce_file_path(course_file)
+    if not text and not file_path:
+        message = "请填写课程笔记文本，或上传 .pdf / .docx / .pptx 课程资料文件。"
+        return _status_markdown("error", message), format_error_markdown(message, client.base_url), session
+
     validation_error = _validate_create_inputs(
         user_name=user_name,
         course_title=course_title,
@@ -190,8 +198,8 @@ def create_learning_plan(
         end_date=end_date,
         daily_minutes=daily_minutes,
         material_text=material_text,
+        material_optional=bool(file_path),
     )
-    client = DemoApiClient()
     if validation_error:
         return _status_markdown("error", validation_error), format_error_markdown(validation_error, client.base_url), session
 
@@ -201,14 +209,22 @@ def create_learning_plan(
         "start_date": start_date.strip(),
         "end_date": end_date.strip(),
         "daily_minutes": int(daily_minutes),
-        "material_text": material_text.strip(),
     }
 
     try:
         user = client.create_user(user_name.strip())
         user_id = int(user["id"])
-        creation = client.create_course_from_text({"user_id": user_id, **payload})
-    except (DemoApiError, KeyError, TypeError, ValueError) as exc:
+        if file_path:
+            file_bytes = Path(file_path).read_bytes()
+            filename = Path(file_path).name
+            creation = client.create_course_from_file(
+                {**payload, "user_id": user_id, "material_text": text or None},
+                filename,
+                file_bytes,
+            )
+        else:
+            creation = client.create_course_from_text({**payload, "user_id": user_id, "material_text": text})
+    except (DemoApiError, KeyError, TypeError, ValueError, OSError) as exc:
         message = str(exc) or "创建学习计划失败，请检查后端服务和输入内容。"
         return _status_markdown("error", message), format_error_markdown(message, client.base_url), session
 
@@ -389,7 +405,7 @@ def fill_example_data() -> tuple[str, str, str, str, str, int, str]:
     )
 
 
-def clear_create_form() -> tuple[str, str, str, str, str, int, str, str, str]:
+def clear_create_form() -> tuple[str, str, str, str, str, int, str, None, str, str]:
     return (
         "",
         "",
@@ -398,6 +414,7 @@ def clear_create_form() -> tuple[str, str, str, str, str, int, str, str, str]:
         "",
         40,
         "",
+        None,
         _status_markdown("idle", "已清空表单。"),
         "### 空状态\n\n填写信息后点击“创建学习计划”。",
     )
@@ -483,6 +500,11 @@ def build_app() -> gr.Blocks:
                     end_date = gr.Textbox(label="结束日期", placeholder="YYYY-MM-DD")
                     daily_minutes = gr.Number(label="每日学习分钟数", value=40, precision=0, minimum=1)
                 material_text = gr.Textbox(label="课程笔记文本", lines=8, placeholder="粘贴课程笔记、课件要点或复习资料。")
+                course_file = gr.File(
+                    label="或上传课程资料文件（.pdf / .docx / .pptx，单个文件 ≤ 10MB）",
+                    file_types=[".pdf", ".docx", ".pptx"],
+                    file_count="single",
+                )
 
                 with gr.Row():
                     create_button = gr.Button("创建学习计划", variant="primary")
@@ -547,6 +569,7 @@ def build_app() -> gr.Blocks:
                 end_date,
                 daily_minutes,
                 material_text,
+                course_file,
                 create_status,
                 create_output,
             ],
@@ -554,7 +577,7 @@ def build_app() -> gr.Blocks:
         )
         create_event = create_button.click(
             fn=create_learning_plan,
-            inputs=[session_state, user_name, course_title, goal, start_date, end_date, daily_minutes, material_text],
+            inputs=[session_state, user_name, course_title, goal, start_date, end_date, daily_minutes, material_text, course_file],
             outputs=[create_status, create_output, session_state],
             show_progress="full",
             concurrency_limit=1,
@@ -624,6 +647,7 @@ def _validate_create_inputs(
     end_date: str,
     daily_minutes: float | int,
     material_text: str,
+    material_optional: bool = False,
 ) -> str | None:
     if not user_name or not user_name.strip():
         return "用户名称不能为空。"
@@ -631,7 +655,7 @@ def _validate_create_inputs(
         return "课程名称不能为空。"
     if not goal or not goal.strip():
         return "学习目标不能为空。"
-    if not material_text or not material_text.strip():
+    if not material_optional and (not material_text or not material_text.strip()):
         return "课程笔记不能为空。"
     try:
         minutes = int(daily_minutes)
@@ -660,6 +684,13 @@ def _validate_submission_inputs(answers: list[str], self_rating: float | int, ex
     if not selected_answers or any(not answer or not answer.strip() for answer in selected_answers):
         return "请填写所有练习题答案后再提交。"
     return None
+
+
+def _coerce_file_path(value: Any) -> str | None:
+    if not value:
+        return None
+    text = str(value).strip()
+    return text or None
 
 
 def _friendly_api_message(message: str) -> str:
